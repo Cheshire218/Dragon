@@ -1,0 +1,10 @@
+.vs/
+Lesson1.Editor.Plugins.csproj
+Lesson1.Plugins.csproj
+Lesson1.csproj
+Lesson1.sln
+Lesson1.userprefs
+Library/
+ProjectSettings/
+UnityPackageManager/
+Assembly-CSharp.csproj
