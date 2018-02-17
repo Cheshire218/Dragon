@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+using UnityStandardAssets.CrossPlatformInput;
 
 public class PlayerMovement : MonoBehaviour {
 
@@ -14,8 +15,8 @@ public class PlayerMovement : MonoBehaviour {
 	//создадим приватную переменную, где будем хранить transform, чтобы постоянно не обращаться к методу GetComponent или к свойству transform.
 	private Transform thisTransform;
 	//Булева переменная, которая говорит нам стоит персонаж на земле сейчас или нет.
+    [SerializeField]
 	private bool grounded = false;
-
 	#region "прыжок";
 	//Трансформ объекта groundCheck, куда будет посылать луч, для проверки, стоит ли персонаж на земле или нет.
 	private Transform groundCheck;
@@ -24,17 +25,9 @@ public class PlayerMovement : MonoBehaviour {
 	//Сила прыжка
 	public float jumpForce = 1000f;
     #endregion;
-
     //Поле для компонента аниматор
     private Animator _animator;
-
-   
     private bool stopWalking;
-
-    //поле для хранения gameObject'а который будет создаваться. Другими словами для наших мин.
-    public GameObject bomb;
-
-
     //Префаб снаряда
     public Rigidbody2D projectile;
     //Скорость снаряда
@@ -43,27 +36,19 @@ public class PlayerMovement : MonoBehaviour {
     AudioSource shootSound;
     //угол атаки
     private float angle;
-
     //точка, откуда появляются снаряды
     private Transform gun;
-
-
-    public Image bombImage;
-    private float bombReloadMax = 1f;
-    private float bombReloadCur;
-
-
-    Vector2 touchMoveStartPoint;
-
     float horizontalInput;
-    bool jump;
 
-    
+    private float currentReload;
+    public float gunReload = 1f;
 
+    public float moveForce = 365f;
+    public Image attackImage;
 
     // В этом методе закешируем необходимые данные
     void Start () {
-        jump = false;
+        currentReload = 0;
         stopWalking = false;
         //кешируем аниматор
         _animator = GetComponent<Animator>();
@@ -73,177 +58,76 @@ public class PlayerMovement : MonoBehaviour {
 		groundCheck = transform.Find("groundCheck");
 		//Кешируем RigidBody2D
 		thisRB2D = GetComponent<Rigidbody2D>();
-        
         gun = transform.Find("Gun");
         //кешируем audioSource
         shootSound = gun.GetComponent<AudioSource>();
-
-        bombReloadCur = 0;
     }
 
     //Метод расчитывае угол под которым полетит снаряд, в зависимости от положения мышки.
-    private void Aiming(Touch currentTouch)
+    private void Aiming()
     {
-        // рассчитаем позицию персонажа относительно экранной системы координат
-        Vector3 pos = Camera.main.WorldToScreenPoint(transform.position);
-        //обнулим глубину
-
-        Vector2 posi = new Vector2(pos.x, pos.y);
-
-        Vector2 aimDir = currentTouch.position - posi;
-        //расчитаем угол (в градусах) необходимый для прицеливания в мышку и запишем этот угол в поле angle
-        angle = Mathf.Atan2(aimDir.y, aimDir.x) * Mathf.Rad2Deg;
-
-    }
-
-
-
-    void TouchMoving()
-    {
-        //Если нажата кнопка прыжка и мы стоим на земле
-        if (jump && grounded && !stopWalking)
+        if(currentReload > 0)
         {
-            //Прыгаем
-            thisRB2D.AddForce(new Vector2(0f, jumpForce));
-        }
-        if (Input.touchCount > 0)
-        {
+            currentReload -= Time.deltaTime;
 
-
-
-            if (!EventSystem.current.IsPointerOverGameObject(Input.GetTouch(0).fingerId))
-            {
-                Touch moveTouch = Input.touches[0];
                 
-
-
-                if (moveTouch.phase == TouchPhase.Began)
-                {
-                    touchMoveStartPoint = moveTouch.position;
-
-                }
-
-
-                Vector2 delta = moveTouch.position - touchMoveStartPoint;
-                if (Mathf.Abs(delta.x) > Screen.width / 25)
-                {
-                    if (moveTouch.phase == TouchPhase.Moved || moveTouch.phase == TouchPhase.Stationary)
-                    { 
-                        delta = delta.normalized;
-                        horizontalInput = delta.x;
-                        if(Input.touchCount > 1 && !EventSystem.current.IsPointerOverGameObject(Input.GetTouch(1).fingerId))
-                        {
-                            
-                            Touch secondTouch = Input.touches[1];
-
-                            if (secondTouch.phase == TouchPhase.Moved || secondTouch.phase == TouchPhase.Stationary)
-                            {
-                                //Вызываем метод Aiming, чтобы персонаж стрелял туда, куда смотрит мышка. Метод сохранит угол в поле angle
-                                Aiming(secondTouch);
-                            }
-
-                            if (secondTouch.phase == TouchPhase.Ended)
-                            {
-                                if (grounded)
-                                {
-                                    stopWalking = true;
-                                }
-                                _animator.SetTrigger("breath_attack");
-                            }
-                        }   
-                    }
-                    
-                }
-                else if(moveTouch.phase == TouchPhase.Ended)
-                {
-                    Aiming(moveTouch);
-                    if (grounded)
-                    {
-                        stopWalking = true;
-                    }
-                    _animator.SetTrigger("breath_attack");
-                }
-                else
-                {
-                    horizontalInput = 0;
-                }
-
-            }
-           
+                attackImage.fillAmount = (gunReload - currentReload) / gunReload;
 
         }
-        else
+        int touchCnt = Input.touchCount;
+        if(touchCnt > 0)
         {
-            touchMoveStartPoint = Vector2.zero;
-            horizontalInput = 0;
+            for(int i = 0; i < touchCnt; i++ )
+            {
+                Touch thisTouch = Input.GetTouch(i);
+                if (!EventSystem.current.IsPointerOverGameObject(thisTouch.fingerId) && thisTouch.phase == TouchPhase.Began)
+                {
+                    // рассчитаем позицию персонажа относительно экранной системы координат
+                    Vector3 pos = Camera.main.WorldToScreenPoint(transform.position);
+                    //обнулим глубину
+                    Vector2 posi = new Vector2(pos.x, pos.y);
+                    Vector2 aimDir = thisTouch.position - posi;
+                    //расчитаем угол (в градусах) необходимый для прицеливания в мышку и запишем этот угол в поле angle
+                    angle = Mathf.Atan2(aimDir.y, aimDir.x) * Mathf.Rad2Deg;
+
+                    if (currentReload <= 0)
+                    {
+                        _animator.SetTrigger("breath_attack");
+                        Invoke("ThrowFire", 0.09f);
+                        currentReload = gunReload;
+                    }
+
+                    break;
+                }
+            }
         }
-
+        
     }
 
-    
-    public void Jumping()
+    void Update()
     {
-        jump = true;
-    }
-
-
-    //Метод, который вызывается определенное количество раз в секунду
-    void FixedUpdate() {
+        if (CrossPlatformInputManager.GetButtonDown("Jump") && grounded)
+        {
+            thisRB2D.AddForce(new Vector2(0f, jumpForce), ForceMode2D.Force);
+        }
         //Проверяем стоит ли персонаж на земле или нет. Для этого посылаем луч из трансформ позиции персонажа до трансформ.позиции объекта groundCheck.
         //Конструкция 1 << LayerMask.NameToLayer("Ground") нужна чтобы указать побитовую маску слоя Ground = 1 * 2^12 или 0001 0000 0000 0000
         grounded = Physics2D.Linecast(thisTransform.position, groundCheck.position, 1 << LayerMask.NameToLayer("Ground"));
         //анимация прыжка
         _animator.SetBool("jump", !grounded);
 
+        Aiming();
+    }
 
-        
 
+    //Метод, который вызывается определенное количество раз в секунду
+    void FixedUpdate() {
         //записываем в переменную использование элментов управления по оси Horizontal. Другими словами, мы назначили для горизонтальной оси кнопка влево - "A", вправо "D". Проверяем не нажаты ли эти кнопки
         //horizontalInput хранит в себе дробное число от -1 до 1. 0 - значит кнопки не нажаты, 1 - вправо, -1 - влево.
-        //horizontalInput = Input.GetAxis ("Horizontal");
-
-
-        TouchMoving();
-        /*
-            //Если нажата кнопка огня
-            if (Input.GetButtonDown("Fire1"))
-            {
-                if (grounded)
-                {
-                    stopWalking = true;
-                }
-                _animator.SetTrigger("breath_attack");
-
-            }
-
-            //Если нажимаем кнопку "Fire2" (в данном случае пр.кнопка мыши или альт), то
-            if (Input.GetButtonDown("Fire2") && bombReloadCur <= 0)
-            {
-                // создаем на сцене gameobject bomb, в позиции transform.position и с ротацией transform.rotation
-                Instantiate(bomb, transform.position, transform.rotation);
-                bombReloadCur = bombReloadMax;
-            }
-            else if (bombReloadCur > 0)
-            {
-                bombReloadCur -= Time.fixedDeltaTime;
-                bombImage.fillAmount = (bombReloadMax - bombReloadCur) / bombReloadMax;
-            }
-        */
-        jump = false;
-
-
-
-
-
-
-
-
-
+        horizontalInput = CrossPlatformInputManager.GetAxis("Horizontal");
 
         //Вызовем метод передвижения и поворота персонажа
         Move(horizontalInput);
-
-
         
 
         //(Если мышь левее (>90 градусов по модулю) нашего персонажа и персонаж смотрит вправо) 
@@ -280,9 +164,6 @@ public class PlayerMovement : MonoBehaviour {
             angle = Mathf.Clamp(angle, -75, 75);
         }
 
-
-        /*
-        */
 
        
 
@@ -342,9 +223,22 @@ public class PlayerMovement : MonoBehaviour {
             _animator.SetBool("walk", true);
 
             //Переместим персонажа с помощью силы
-            thisRB2D.AddForce(new Vector2(100 * horInput * Time.fixedDeltaTime * speed, 0f), ForceMode2D.Force);
-		}
-        else
+            //thisRB2D.AddForce(new Vector2(100 * horInput * Time.fixedDeltaTime * speed, 0f), ForceMode2D.Force);
+
+            if (horInput * thisRB2D.velocity.x < speed)
+            {
+                thisRB2D.AddForce(Vector2.right * horInput * moveForce * Time.fixedDeltaTime);
+            }
+
+            if (Mathf.Abs(thisRB2D.velocity.x) > speed)
+            {
+                // ... set the player's velocity to the maxSpeed in the x axis.
+                thisRB2D.velocity = new Vector2(Mathf.Sign(thisRB2D.velocity.x) * speed, thisRB2D.velocity.y);
+            }
+
+
+        }
+        else if(grounded)
         {
             //уберем движение по X
             thisRB2D.velocity = new Vector2(0, thisRB2D.velocity.y);

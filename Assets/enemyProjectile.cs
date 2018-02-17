@@ -36,7 +36,7 @@ public class enemyProjectile : MonoBehaviour {
         if (col.tag == "Player" && !col.isTrigger)
         {
             // Ищем у объекта компонент playerHealth и вызываем метод GetDamage
-            col.gameObject.GetComponent<playerHealth>().GetDamage(5);
+            col.gameObject.GetComponent<playerHealth>().GetDamage(15);
             // Вызываем взрыв ))
             OnExplode();
             // Уничтожаем снаряд

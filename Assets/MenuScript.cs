@@ -12,7 +12,7 @@ public class MenuScript : MonoBehaviour {
 
     public void StartGame()
     {
-        SceneManager.LoadScene("hw");
+        SceneManager.LoadScene("hw_3");
     }
 
     public void QuitGame()
@@ -22,7 +22,7 @@ public class MenuScript : MonoBehaviour {
 
     public void LevelTwo()
     {
-        SceneManager.LoadScene("hw_2");
+        SceneManager.LoadScene("hw_4");
     }
 
     public void GoToMenu()

@@ -42,8 +42,12 @@ public class MyEnemy : MonoBehaviour {
     public float coolDown = 2f;
     //текущий кулдаун (если 0 - можно бить)
     private float currentCoolDown = 0f;
-
+    private Animator _animator;
     public MySpawner spawner;
+
+    public bool turret = true;
+
+    private Transform gun;
 
 
     //метод установит начальную позицию, куда будем возвращаться
@@ -56,33 +60,37 @@ public class MyEnemy : MonoBehaviour {
     void Start () {
         //кешируем rigidbody2d
         thisRB2D = GetComponent<Rigidbody2D>();
-        //В дочернем объекте Body ищем компонент SpriteRenderer и сохраняем его в ren
-        ren = transform.Find("body").GetComponent<SpriteRenderer>();
         //кешируем траснформ
         thisTransform = transform;
         //через пол секунды установим стартовую позицию (что успел упасть)
         Invoke("SetStartPosition", 0.5f);
+        _animator = GetComponent<Animator>();
+        gun = thisTransform.Find("gun").transform;
+    }
+
+    void ThrowBullet()
+    {
+        if (target != null && targetHealth != null)
+        {
+            Rigidbody2D bulletInstance;
+            Vector3 bulletDir = target.position - thisTransform.position;
+            float angle = Mathf.Atan2(bulletDir.y, bulletDir.x) * Mathf.Rad2Deg;
+            bulletInstance = Instantiate(projectile, gun.position, Quaternion.Euler(new Vector3(0, 0, angle - 13.5f))) as Rigidbody2D;
+            //приложим силу к нашему снаряду
+            bulletInstance.velocity = bulletDir.normalized * projectileSpeed;
+        }
     }
 
     //метод нанесения урона
     void Attack()
     {
-        //создадим переменную, где будет у снаряд
-        Rigidbody2D bulletInstance;
-        //если смотрим вправо
-        if (lookRight)
+        if (turret)
         {
+            //если смотрим вправо
+            _animator.SetTrigger("attack");
             //снаряд смотрит направо
-            bulletInstance = Instantiate(projectile, thisTransform.position + Vector3.up, Quaternion.Euler(new Vector3(0, 0, 0))) as Rigidbody2D;
+            Invoke("ThrowBullet", 0.5f);
         }
-        //иначе
-        else
-        {
-            //снаряд смотрит влево
-            bulletInstance = Instantiate(projectile, thisTransform.position + Vector3.up, Quaternion.Euler(new Vector3(0, 0, 180))) as Rigidbody2D;
-        }
-        //приложим силу к нашему снаряду
-        bulletInstance.velocity = Dir.normalized * projectileSpeed;
     }
 	
     //метод вызывается определенное количество раз в секунду
@@ -107,7 +115,7 @@ public class MyEnemy : MonoBehaviour {
             }
             
             //если подошли на расстояние атаки и цель можно атаковать (есть скрипт, отвечающий за хп цели)
-            if (Vector2.Distance(thisTransform.position, target.position)<= minDistance && targetHealth != null)
+            if (target != null && targetHealth != null)
             {
                 //если нет кд на атаку
                 if (currentCoolDown <= 0)
@@ -125,36 +133,14 @@ public class MyEnemy : MonoBehaviour {
                 }
             }
             //если слишком далеко
-            else
+            else if(!turret)
             {
                 //силы в направлении нужном двигать будут нас
                 thisRB2D.AddForce(Dir * Time.fixedDeltaTime * speed, ForceMode2D.Force);
             }
         }
         //если мы не сагренны
-        else
-        {
-            //если не далеко от стартовой точки, то отдыхаем, че суетиться :) если же далеко, движемся обратно
-            if (Vector2.Distance(thisTransform.position, startPosition) > minDistance)
-            {
-                //смотрим направление до стартовой точки
-                float x = startPosition.x - thisTransform.position.x;
-                //если нам нужно влево и мы смотрим вправо
-                if (x < 0 && lookRight)
-                {
-                    //повернемся
-                    Flip();
-                }
-                //если нам нужно вправо и мы смотрим влево
-                else if (x > 0 && !lookRight)
-                {
-                    //повернемся
-                    Flip();
-                }
-                //шааагом марш!
-                thisRB2D.AddForce(new Vector2(x, 0).normalized * Time.fixedDeltaTime * speed, ForceMode2D.Force);
-            }
-        }
+        
     }
 
     //в триггер попал
@@ -170,7 +156,10 @@ public class MyEnemy : MonoBehaviour {
             //агримся
             agro = true;
         }
-    }    //при выходе коллайдера из нашего триггера    private void OnTriggerExit2D(Collider2D collision)
+    }
+
+    //при выходе коллайдера из нашего триггера
+    private void OnTriggerExit2D(Collider2D collision)
     {
         //если это игрок вышел
         if (collision.gameObject.layer == 9) // Если этот триггер игрок
@@ -180,7 +169,8 @@ public class MyEnemy : MonoBehaviour {
             //и сбрасываем агро
             agro = false;
         }
-    }
+    }
+
     //метод поворота
     void Flip()
     {
@@ -203,12 +193,6 @@ public class MyEnemy : MonoBehaviour {
 		//уменьшаем хп на 1
 		HP--;
 
-        // Если попали 1 раз и у нас есть спрайт поврежденного врага, 
-        if (HP == 1 && damagedEnemy != null) {
-            // то подставляем его
-            ren.sprite = damagedEnemy;
-        }
-
         // Если хп отняли до 0 и ещё не указано, что враг умер
         if (HP <= 0 && !dead)
         { 
@@ -220,15 +204,10 @@ public class MyEnemy : MonoBehaviour {
 	//Помирает враг
 	void Death()
 	{
-		//Ищем все SpriteRenderer в дочерних объектах
-		SpriteRenderer[] otherRenderers = GetComponentsInChildren<SpriteRenderer>();
+        //Ищем все SpriteRenderer в дочерних объектах
+        _animator.SetTrigger("Death");
+        thisRB2D.bodyType = RigidbodyType2D.Kinematic;
 
-		// Всех их
-		foreach(SpriteRenderer s in otherRenderers)
-		{
-			//вырубаем
-			s.enabled = false;
-		}
 
         //Ищем все Collider2D в дочерних объектах
         Collider2D[] otherColliders = GetComponentsInChildren<Collider2D>();
@@ -239,20 +218,12 @@ public class MyEnemy : MonoBehaviour {
             s.enabled = false;
         }
 
-        //Если у дочернего Body есть SpriteRenderer
-        if (ren != null)
-        {
-            // включаем SpriteRenderer у дочернего объекта Body
-            ren.enabled = true;
-            // подставляем туда убитого врага
-            ren.sprite = deadEnemy;
-        }
+        
+        
 
 		//говорим что враг мертв
 		dead = true;
 
-		// Применяем крутящий момент к центру масс (от минимального до максимального указанного вверху)
-		GetComponent<Rigidbody2D>().AddTorque(Random.Range(deathSpinMin,deathSpinMax));
 
 		// Получаем все компоненты типа Collider2D
 		Collider2D[] cols = GetComponents<Collider2D>();
@@ -267,7 +238,7 @@ public class MyEnemy : MonoBehaviour {
             spawner.EnemyDead();
         }
         //Уничтожаем gameObject
-        Destroy(gameObject, 1);
+        Destroy(gameObject, 1.5f);
 	}
 
 }

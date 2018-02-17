@@ -15,6 +15,10 @@ public class playerHealth : MonoBehaviour {
     //компонент управления
     PlayerMovement playerMove;
 
+
+    //Храним риджид бади 2д, чтоб постоянно не обращаться к нему
+    private Rigidbody2D thisRB2D;
+
     public Slider healthSlider;
 
 	
@@ -25,16 +29,16 @@ public class playerHealth : MonoBehaviour {
         health = Mathf.Clamp(health - damageAmount, 0, maxHealth);
         healthSlider.value = health;
 
-        playerMove.enabled = false;
+        //playerMove.enabled = false;
         if (health <= 0)
         {
             Death();
             return;
         }
 
-        _animator.SetTrigger("stunned");
+        //_animator.SetTrigger("stunned");
         
-        Invoke("StunFree", stunTime);
+        //Invoke("StunFree", stunTime);
     }
 
     void StunFree()
@@ -51,6 +55,8 @@ public class playerHealth : MonoBehaviour {
         health = maxHealth;
         healthSlider.maxValue = maxHealth;
         healthSlider.value = health;
+        //Кешируем RigidBody2D
+        thisRB2D = GetComponent<Rigidbody2D>();
     }
 
     void Death()
@@ -58,6 +64,7 @@ public class playerHealth : MonoBehaviour {
         _animator.SetTrigger("death");
         playerMove.enabled = false;
         this.enabled = false;
+        thisRB2D.bodyType = UnityEngine.RigidbodyType2D.Static;
         //Destroy(gameObject, 1f);
         Invoke("ReloadLevel", 1f);
     }
@@ -65,6 +72,11 @@ public class playerHealth : MonoBehaviour {
     void ReloadLevel()
     {
         Application.LoadLevel(Application.loadedLevel);
+    }
+
+    public void CoupDeGrace()
+    {
+        Death();
     }
 
 }

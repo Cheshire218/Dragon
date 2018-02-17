@@ -18,12 +18,15 @@ public class MyCameraScript : MonoBehaviour {
     //здесь закешируем наш трансформ, чтоб постоянно к нему не стучаться
     private Transform thisTransform;
 
+    private Vector3 offset;
+
     //закешируем данные
     void Start () {
         //трансформ gameObject'а с тэгом "Player"
         player = GameObject.FindGameObjectWithTag("Player").transform;
         //закешируем свой трансформ
         thisTransform = transform;
+        offset = player.position - thisTransform.position;
     }
 	
 	//метод вызывается определенное количество раз в секунду
@@ -40,19 +43,20 @@ public class MyCameraScript : MonoBehaviour {
         float newX = thisTransform.position.x;
         //и по игреку
         float newY = thisTransform.position.y;
+        Vector3 target = player.position - offset;
 
         //проверим отдалился ли персонаж по оси икс на расстояние, необходимое для движения камеры
-        if (Mathf.Abs(thisTransform.position.x - player.position.x) > xMargin)
+        if (Mathf.Abs(thisTransform.position.x - target.x) > xMargin)
         {
             //используем линейную интерполяцию для более гладкого движения камеры
-            newX = Mathf.Lerp(thisTransform.position.x, player.position.x, xSmooth * Time.fixedDeltaTime);
+            newX = Mathf.Lerp(thisTransform.position.x, target.x, xSmooth * Time.fixedDeltaTime);
         }
 
         //проверим отдалился ли персонаж по оси игрек на расстояние, необходимое для движения камеры
-        if (Mathf.Abs(thisTransform.position.y - player.position.y) > yMargin)
+        if (Mathf.Abs(thisTransform.position.y - target.y) > yMargin)
         {
             //используем линейную интерполяцию для более гладкого движения камеры
-            newY = Mathf.Lerp(thisTransform.position.y, player.position.y, ySmooth * Time.fixedDeltaTime);
+            newY = Mathf.Lerp(thisTransform.position.y, target.y, ySmooth * Time.fixedDeltaTime);
         }
 
         //меняем положение камеры в соответствии с новыми значениями
